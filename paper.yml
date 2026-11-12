@@ -1,0 +1,163 @@
+# PaperMC config - performance per 30 giocatori
+verbose: false
+config-version: 31
+settings:
+  load-permissions-yml-before-plugins: true
+  book-size:
+    page-max: 2560
+    total-multiplier: 0.5
+  console:
+    use-bukkit-color: true
+  bstats: true
+  plugin-profiling: true
+  watchdog:
+    early-warning-every: 5000
+    early-warning-delay: 10000
+  use-alternate-luckperms-provider: false
+  region-file-compression: DEFLATE
+  chunks-per-tick: 650
+  disable-chest-cat-detection: true
+  container-update-tick-rate: 1
+  hopper:
+    disable-move-event: true
+    cooldown-when-full: true
+    push-transfer-cooldown: 0
+  fixed-chunk-inhabited-time: -1
+  baby-zombie-movement-speed: 0.5
+  zombie-aggressive-towards-villager: true
+  perceptual-trimmer:
+    update-interval: 3
+  netty:
+    direct-buffer-pool-size: 0
+  collision:
+    apply-max-collisions-per-tick-to-players: true
+    max-collisions-per-tick: 8
+  vehicle:
+    max-passengers: 4
+  spawn:
+    spawn-limits:
+      monsters: 70
+      animals: 15
+      water-animals: 5
+      water-ambient: 20
+      water-underground: 5
+      axolotls: 5
+      ambient: 15
+    mob-spawn-range: 4
+    tick-rates:
+      monster: 1
+      animal: 400
+      water-animal: 400
+      water-ambient: 400
+      water-underground: 400
+      axolotl: 400
+      ambient: 400
+    spawn-radius: 10
+    despawn-ranges:
+      soft: 32
+      hard: 128
+    auto-save-interval: 6000
+    per-player-mob-spawns: true
+    altitude:
+      maximum: 256
+      minimum: 0
+  entity-activation-range:
+    animal: 32
+    monster: 32
+    raider: 48
+    misc: 16
+    water: 16
+    villagers: 32
+    flying-monsters: 48
+  nerf-spawner-mobs: true
+  max-auto-save-chunks-per-tick: 24
+  optimize-explosions: true
+  treasure-maps:
+    enabled: true
+    find-already-discovered:
+      loot-tables: true
+      structures: true
+  max-entity-collisions: 8
+  disable-thunder: false
+  disable-ice-and-snow: false
+  disable-unloaded-chunk-enderpearl-exploit: true
+  non-player-arrow-despawn-rate:
+    creative: -1
+    survival: 60
+  creative-arrow-despawn-rate: -1
+  prevent-tnt-from-slowing-server: false
+  fire-physics-event-for-redstone: false
+  grass-spread-tick-rate: 1
+  despawn-ranges:
+    animal: 40
+    monster: 40
+    ambient: 40
+    axolotl: 40
+    water-animal: 40
+    water-ambient: 40
+    water-underground: 40
+    raider: 48
+    misc: 32
+  container-update-tick-rate: 1
+  enable-treasure-maps: true
+  use-faster-eigencraft-redstone: true
+  armor-stands:
+    do-collision-entity-lookups: true
+    tick: true
+    gravity: true
+    physics: true
+    pushable: true
+  non-player-arrow-despawn-rate:
+    creative: -1
+    survival: 60
+  experience-merge-max-value: -1
+  keep-spawn-loaded: true
+  keep-spawn-loaded-range: 10
+  max-chunk-sends-per-tick: 100
+  max-chunk-generation-per-tick: 5
+  light-queue-size: 20000
+  max-growth-height:
+    cactus: 3
+    reeds: 3
+    bamboo: 16
+  entity-per-chunk-save-limit:
+    experience_orb: 20
+    arrow: 50
+    snowball: 10
+    ender_pearl: 10
+    splash_potion: 50
+    lingering_potion: 20
+    small_fireball: 10
+    fireball: 10
+    wither_skull: 5
+    shulker_bullet: 10
+    llama_spit: 10
+    firework_rocket: 50
+  hopper:
+    cooldown-when-full: true
+    push-transfer-cooldown: 0
+    disable-move-event: true
+  disable-chest-cat-detection: true
+  use-alternate-keepalive: true
+  alternate-keepalive-interval: 5000
+  use-per-chunk-tick-counter: true
+  use-async-entity-tracker: true
+  use-faster-eigencraft-redstone: true
+  use-faster-dispenser-redstone: true
+  use-faster-hopper-redstone: true
+  use-faster-comparator-redstone: true
+  use-faster-repeater-redstone: true
+  use-faster-observer-redstone: true
+  use-faster-piston-redstone: true
+  use-faster-redstone-dust: true
+  use-faster-redstone-wire: true
+  use-faster-redstone-torch: true
+  use-faster-lever-redstone: true
+  use-faster-button-redstone: true
+  use-faster-pressure-plate-redstone: true
+  use-faster-tripwire-redstone: true
+  use-faster-daylight-sensor-redstone: true
+  use-faster-trapped-chest-redstone: true
+  use-faster-redstone-lamp: true
+  use-faster-noteblock-redstone: true
+  use-faster-comparator-redstone: true
