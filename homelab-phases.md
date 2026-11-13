@@ -1,4 +1,6 @@
-# 📖 Guida alle fasi successive dell’homeschool Cloud Lab  
+> ⚠️ **Guida del vecchio homelab (luglio 2026, ASUS Vivobook ≤2 GB).** Non descrive il server Minecraft attuale: per quello vedi il [README](README.md). Nota sulle unit `systemd --user` riportate qui: `User=%i` va tolto (in una unit utente non serve e può impedire l'avvio), `Type=notify` va sostituito con `Type=simple`, e i commenti dopo `\` dentro `ExecStart` spezzano il comando.
+
+# 📖 Guida alle fasi successive dell’homelab Cloud Lab  
 *(continua dopo la configurazione Samba – vedere `samba-setup-ubuntu24.04.md`)*  
 
 Questo documento riassume le fasi **2‑5** della guida completa `GUIDA-SERVER-CLOUD.md`, adattate per un sistema Ubuntu 24.04 LTS con privilegi di root ottenuti tramite `su -` o tramite `sudo` configurato (vedi la sezione **Ottenere privilegi** nel file precedente).  
@@ -152,7 +154,7 @@ EOF
 ```bash
 systemctl --user daemon-reload
 systemctl --user enable --now minecraft-container.service
-systemctl --user status minecottaincer.service --no-pager -l
+systemctl --user status minecraft-container.service --no-pager -l
 ```
 - Cerca `Active: active (running)` e `Main PID: … (podman)`.
 - Verifica risorse:
@@ -269,7 +271,7 @@ Se desideri salvare lo stato su AWS S3 (richiede credenziali AWS configurate):
 | Attività | Comando / Nota |
 |----------|----------------|
 | **Controllo risorse container** | `watch -n 5 "podman stats --no-stream && free -h"` |
-| **Log journald** | `journalctl --user -u samba-container.service -f` <br> `journalctl --user -u jellyfin-container.service -f` <br> `journalctl --user -u minecottaincer.service -f` |
+| **Log journald** | `journalctl --user -u samba-container.service -f` <br> `journalctl --user -u jellyfin-container.service -f` <br> `journalctl --user -u minecraft-container.service -f` |
 | **Aggravamento log** (facoltativo) | Modifica `/etc/systemd/journald.conf` → `Storage=persistent` e `SystemMaxUse=100M` |
 | **Aggiornare container** | `systemctl --user restart <servizio>-container.service` (Podman pullerà l’immagine più recente se usando `:latest`) |
 | **Backup manuale dei mondi Minecraft** | `cp -r ~/mcserver/server/world ~/mcserver/backup/world_$(date +%F_%H%M%S)` |

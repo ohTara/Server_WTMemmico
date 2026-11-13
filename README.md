@@ -27,9 +27,10 @@ Lo script fa tutto:
 3. Scarica plugin: Geyser, Floodgate, ViaVersion family, EssentialsX, Spark
 4. Configura `server.properties`, `paper.yml`, `config.yml` (Geyser)
 5. Crea systemd user service `mc-server`
-6. Crea script backup con rotazione + rclone
+6. Crea script backup con rotazione + rclone e un timer systemd giornaliero (03:00)
 7. Aggiunge alias bash (`mc-start`, `mc-stop`, `mc-logs`, ecc.)
 8. Installa e configura Tailscale
+9. Attiva il lingering, così il server resta acceso dopo il logout e parte al boot
 
 ## Struttura
 
@@ -66,8 +67,9 @@ Lo script fa tutto:
 | `mc-restart` | Riavvia completo |
 | `mc-status` | Stato systemd |
 | `mc-logs` | Log live (journalctl -f) |
-| `mc-console` | Console interattiva |
-| `mc-backup` | Backup manuale mondo + config + plugin |
+| `mc-console` | Stato del servizio (non c'è una console interattiva: il server gira sotto systemd) |
+| `mc-backup` | Backup manuale mondi + config |
+| `mc-backup-now` | Backup manuale solo locale (senza upload rclone) |
 | `mc-backup-list` | Lista backup locali |
 | `mc-version` | Versione PaperMC installata |
 
@@ -96,12 +98,20 @@ tailscale ip -4
 # Bedrock       →  100.x.y.z:19132 (UDP)
 ```
 
-**Nota:** `online-mode=false` in `server.properties` (offline/insecure). Per server pubblico, metti `true` e configura autenticazione Microsoft.
+**Sicurezza:** `online-mode=false` e nessuna whitelist: chiunque raggiunga la porta può entrare con qualsiasi nome, anche quello di un operatore. Va bene solo finché il server è raggiungibile unicamente dalla tailnet. Prima di aprire le porte sul router, impostare `online-mode=true` oppure `white-list=true`.
 
 ## Backup & Restore
 
 ### Backup automatico
-Cron giornaliero alle 03:00 (configurabile in `backup.sh` o via systemd timer).
+Timer systemd utente `mc-backup.timer`, ogni giorno alle 03:00. Il server viene fermato per la durata dell'archivio e poi riavviato.
+
+```bash
+systemctl --user list-timers mc-backup.timer   # prossima esecuzione
+systemctl --user start mc-backup.service       # esecuzione immediata
+journalctl --user -u mc-backup.service -n 50   # log dell'ultimo backup
+```
+
+L'archivio contiene `world/`, `world_nether/`, `world_the_end/`, `server.properties` e `config/`. I plugin non sono inclusi: si riscaricano con lo script di installazione.
 
 ### Backup manuale
 ```bash
@@ -201,10 +211,11 @@ bedrock:
 | Problema | Soluzione |
 |---|---|
 | Server non parte | `journalctl --user -u mc-server -f` |
+| Server si ferma al logout | `sudo loginctl enable-linger $USER` |
 | Geyser "zip file closed" | Race condition restart → `mc-restart` risolve |
 | WorldEdit error Java version | Build richiede Java 25+ → usa build compatibile o rimuovi |
 | Bedrock non connette | Verifica porta 19132 UDP + `tailscale ip -4` corretto |
-| Lag / TPS basso | `mc-console` → `spark profiler --timeout 60` → analizza report |
+| Lag / TPS basso | in gioco, da operatore: `/spark profiler start --timeout 60` → analizza il report |
 | Permessi "permission denied" | `chmod +x install-mc-server.sh backup.sh` |
 | Tailscale non installa | `curl -fsSL https://tailscale.com/install.sh \| sh` manuale |
 
@@ -233,7 +244,27 @@ git pull
 ./install-mc-server.sh  # Ri-esegue: scarica nuove versioni, preserva mondi/config
 ```
 
-> **Nota:** Lo script è idempotente. Ri-eseguendolo aggiorna JAR e plugin ma **non tocca** `world/`, `server.properties`, `paper.yml`, `config/`.
+> **Nota:** Ri-eseguendolo, lo script aggiorna JAR e plugin e riscrive il servizio systemd e `backup.sh`. **Non tocca** `world/`, `server.properties`, `config/paper.yml` e la configurazione di Geyser se esistono già. Per rigenerare uno di questi file con i valori predefiniti, cancellarlo prima di rilanciare lo script.
+
+## File della repo
+
+| File | Contenuto |
+|---|---|
+| `install-mc-server.sh` | Installazione e aggiornamento del server |
+| `backup.sh`, `mc-server.service` | Copie di riferimento di ciò che lo script genera |
+| `server.properties`, `paper*.yml`, `config/` | Configurazione di riferimento del server |
+
+### Guide del vecchio homelab (luglio 2026)
+
+Riguardano un'altra macchina: ASUS Vivobook con ≤2 GB di RAM, servizi in container Podman con limiti stretti (Minecraft a 800 MB e 4 giocatori). **Non descrivono questo server.**
+
+| File | Contenuto |
+|---|---|
+| `guida-server-cloud.md` | Guida completa da zero: ottimizzazione, sicurezza, Samba, Jellyfin, Minecraft |
+| `homelab-phases.md` | Jellyfin e Minecraft in Podman, unit systemd gestite con Terraform |
+| `ssh-hardening-ubuntu24.04.md` | Hardening SSH |
+| `minecraft-fix-protocol.md`, `minecraft-setup-home.md` | Ripristino del container Minecraft |
+| `cloud-study-resources.md` | Installazione degli strumenti cloud su Ubuntu/Debian |
 
 ## Licenza
 

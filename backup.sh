@@ -26,7 +26,13 @@ if systemctl --user is-active mc-server >/dev/null 2>&1; then
 fi
 
 log "Creo archivio: $ARCHIVE"
-tar -czf "$ARCHIVE" -C "$MC_DIR" "$WORLD_NAME"
+# Overworld, Nether, End e configurazione (solo ciò che esiste)
+ITEMS=()
+for item in "$WORLD_NAME" "${WORLD_NAME}_nether" "${WORLD_NAME}_the_end" \
+            server.properties config; do
+  [[ -e "$MC_DIR/$item" ]] && ITEMS+=("$item")
+done
+tar -czf "$ARCHIVE" -C "$MC_DIR" "${ITEMS[@]}"
 
 # Riavvia se era running
 if [[ "$WAS_RUNNING" == "true" ]]; then

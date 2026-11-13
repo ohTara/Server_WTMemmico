@@ -1,3 +1,5 @@
+> ⚠️ **Guida del vecchio homelab (luglio 2026, ASUS Vivobook ≤2 GB).** Non descrive il server Minecraft attuale: per quello vedi il [README](README.md).
+
 # 📋 GUIDA COMPLETA: CONFIGURAZIONE SERVER DA ZERO PER STUDIO CLOUD, MEDIA E GAMING  
 *Ordine logico per partire da un sistema vergine e arrivare a un server ottimizzato, sicuro e multifunzione*  
 *(Basato su tutta la conversazione precedente: da configurazione Claude Code a ottimizzazioni hardware vecchio, media/server gioco e sicurezza)*  

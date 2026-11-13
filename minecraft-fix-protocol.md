@@ -1,3 +1,5 @@
+> ⚠️ **Guida del vecchio homelab (luglio 2026, ASUS Vivobook ≤2 GB).** Non descrive il server Minecraft attuale: per quello vedi il [README](README.md). Nota sulle unit `systemd --user` riportate qui: `User=%i` va tolto (in una unit utente non serve e può impedire l'avvio), `Type=notify` va sostituito con `Type=simple`, e i commenti dopo `\` dentro `ExecStart` spezzano il comando.
+
 # 🔧 Minecraft Container Fix Protocol for ASUS Vivobook (Debian 12)
 *Guaranteed 30-second fix for systemd/Podman Minecraft container failures - tested on identical hardware*
 

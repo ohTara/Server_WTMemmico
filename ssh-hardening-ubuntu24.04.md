@@ -1,3 +1,5 @@
+> ⚠️ **Guida del vecchio homelab (luglio 2026, ASUS Vivobook ≤2 GB).** Non descrive il server Minecraft attuale: per quello vedi il [README](README.md).
+
 # 🔐 Hardening SSH su Ubuntu 24.04 – Correzione dei comandi
 
 Hai provato a modificare `/etc/ssh/sshd_config` e a riavviare il servizio senza i privilegi di amministratore, quindi hai ottenuto gli errori  

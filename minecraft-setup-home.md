@@ -1,3 +1,5 @@
+> ⚠️ **Guida del vecchio homelab (luglio 2026, ASUS Vivobook ≤2 GB).** Non descrive il server Minecraft attuale: per quello vedi il [README](README.md). Nota sulle unit `systemd --user` riportate qui: `User=%i` va tolto (in una unit utente non serve e può impedire l'avvio), `Type=notify` va sostituito con `Type=simple`, e i commenti dopo `\` dentro `ExecStart` spezzano il comando.
+
 # 🐳 Minecraft Server Setup (Podman rootless, home‑directory based)
 
 This guide walks you through creating a PaperMC Minecraft server container using Podman, running as a systemd user service, with all data stored in your home directory (no sudo needed for `/opt` or `/srv`).  

@@ -100,6 +100,9 @@ done
 # Config Geyser (config.yml generato al primo avvio, qui prepariamo)
 log "Preparo config Geyser..."
 mkdir -p "$MC_DIR/plugins/Geyser-Spigot"
+if [[ -f "$MC_DIR/plugins/Geyser-Spigot/config.yml" ]]; then
+  warn "config Geyser esiste già: non lo sovrascrivo"
+else
 cat > "$MC_DIR/plugins/Geyser-Spigot/config.yml" << 'GEYSER_EOF'
 bedrock:
   address: 0.0.0.0
@@ -127,6 +130,7 @@ legacy-ping-passthrough: false
 ping-passthrough-interval: 30
 forward-player-ping: false
 GEYSER_EOF
+fi
 
 # ──────────────────────────────────────────────────────────────────────────────
 # EULA
@@ -136,6 +140,9 @@ echo "eula=true" > "$MC_DIR/eula.txt"
 # ──────────────────────────────────────────────────────────────────────────────
 # server.properties ottimizzato
 log "Genero server.properties..."
+if [[ -f "$MC_DIR/server.properties" ]]; then
+  warn "server.properties esiste già: non lo sovrascrivo"
+else
 cat > "$MC_DIR/server.properties" << 'PROPS_EOF'
 # PaperMC + Geyser optimized
 server-port=25565
@@ -180,10 +187,14 @@ max-build-height=320
 min-build-height=-64
 function-permission-level=2
 PROPS_EOF
+fi
 
 # ──────────────────────────────────────────────────────────────────────────────
 # paper.yml ottimizzato (performance)
 log "Genero paper.yml..."
+if [[ -f "$MC_DIR/config/paper.yml" ]]; then
+  warn "paper.yml esiste già: non lo sovrascrivo"
+else
 cat > "$MC_DIR/config/paper.yml" << 'PAPER_EOF'
 # PaperMC config - performance per 30 giocatori
 verbose: false
@@ -349,6 +360,7 @@ settings:
   use-faster-noteblock-redstone: true
   use-faster-comparator-redstone: true
 PAPER_EOF
+fi
 
 # ──────────────────────────────────────────────────────────────────────────────
 # systemd user service
@@ -437,7 +449,13 @@ if systemctl --user is-active mc-server >/dev/null 2>&1; then
 fi
 
 log "Creo archivio: $ARCHIVE"
-tar -czf "$ARCHIVE" -C "$MC_DIR" "$WORLD_NAME"
+# Overworld, Nether, End e configurazione (solo ciò che esiste)
+ITEMS=()
+for item in "$WORLD_NAME" "${WORLD_NAME}_nether" "${WORLD_NAME}_the_end" \
+            server.properties config; do
+  [[ -e "$MC_DIR/$item" ]] && ITEMS+=("$item")
+done
+tar -czf "$ARCHIVE" -C "$MC_DIR" "${ITEMS[@]}"
 
 # Riavvia se era running
 if [[ "$WAS_RUNNING" == "true" ]]; then
@@ -467,8 +485,48 @@ BACKUP_EOF
 chmod +x "$MC_DIR/backup.sh"
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Backup automatico giornaliero (systemd user timer, ore 03:00)
+log "Creo timer di backup giornaliero..."
+cat > "$HOME/.config/systemd/user/mc-backup.service" << EOF
+[Unit]
+Description=Backup Minecraft server
+
+[Service]
+Type=oneshot
+Environment=MC_DIR=$MC_DIR
+Environment=BACKUP_REMOTE=$BACKUP_REMOTE
+Environment=BACKUP_KEEP_DAYS=$BACKUP_KEEP_DAYS
+ExecStart=$MC_DIR/backup.sh
+EOF
+
+cat > "$HOME/.config/systemd/user/mc-backup.timer" << 'EOF'
+[Unit]
+Description=Backup Minecraft server ogni giorno alle 03:00
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl --user daemon-reload
+systemctl --user enable --now mc-backup.timer \
+  || warn "Timer di backup non attivato: systemctl --user enable --now mc-backup.timer"
+
+# Senza lingering i servizi utente si fermano al logout e non partono al boot
+if command -v loginctl >/dev/null 2>&1; then
+  sudo loginctl enable-linger "$USER" \
+    || warn "Lingering non attivato: sudo loginctl enable-linger $USER"
+fi
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Alias utili
 log "Aggiungo alias a ~/.bashrc..."
+if grep -q "# Minecraft server aliases" ~/.bashrc 2>/dev/null; then
+  warn "Alias già presenti in ~/.bashrc: non li riaggiungo"
+else
 cat >> ~/.bashrc << 'ALIAS_EOF'
 
 # Minecraft server aliases
@@ -479,9 +537,11 @@ alias mc-status='systemctl --user status mc-server'
 alias mc-logs='journalctl --user -u mc-server -f'
 alias mc-console='systemctl --user status mc-server && echo "Use: journalctl --user -u mc-server -f for live logs"'
 alias mc-backup='$HOME/minecraft-server/backup.sh'
+alias mc-backup-list='ls -lh $HOME/minecraft-server/backups/'
 alias mc-backup-now='BACKUP_REMOTE="" $HOME/minecraft-server/backup.sh'
 alias mc-version='cat $HOME/minecraft-server/paper.jar 2>/dev/null | strings | grep -i paper | head -1 || echo "Server non installato"'
 ALIAS_EOF
+fi
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Tailscale (installa se manca)
