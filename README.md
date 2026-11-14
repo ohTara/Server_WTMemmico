@@ -24,7 +24,7 @@ chmod +x install-mc-server.sh
 Lo script fa tutto:
 1. Installa Java 25 + dipendenze
 2. Scarica PaperMC 1.21.11 (build 34) via API v3
-3. Scarica plugin: Geyser, Floodgate, ViaVersion family, EssentialsX, Spark, più LuckPerms, CoreProtect, GriefPrevention e squaremap da Modrinth
+3. Scarica plugin: Geyser, Floodgate, ViaVersion family, EssentialsX, Spark, più LuckPerms, CoreProtect, GriefPrevention, squaremap e SkinsRestorer da Modrinth
 4. Configura `server.properties`, `paper.yml`, `config.yml` (Geyser) e attiva RCON con una password casuale
 5. Crea systemd user service `mc-server`
 6. Installa gli strumenti in `~/minecraft-server/bin` (backup, ripristino, whitelist, avvisi Discord, firewall) e un timer systemd giornaliero (03:00)
@@ -171,6 +171,7 @@ Scaricati da Modrinth nella versione adatta a Paper e alla versione di Minecraft
 | CoreProtect | Registro dei blocchi e annullamento dei danni | `/co inspect`, `/co rollback` |
 | GriefPrevention | Protezione dei terreni | Clic destro con la pala d'oro su due angoli |
 | squaremap | Mappa web del mondo | `http://<ip-tailscale>:8080` |
+| SkinsRestorer | Skin visibili con server offline | `/skin set <nome>` |
 
 Per sceglierne solo alcuni: `MC_PLUGIN_EXTRA="luckperms coreprotect" ./install-mc-server.sh` (stringa vuota = nessuno).
 

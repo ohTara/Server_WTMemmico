@@ -15,7 +15,7 @@ BACKUP_KEEP_DAYS=14
 TAILSCALE_ENABLED=true
 # Plugin aggiuntivi scaricati da Modrinth nella versione adatta al server.
 # Per escluderne uno: MC_PLUGIN_EXTRA="luckperms coreprotect" ./install-mc-server.sh
-MC_PLUGIN_EXTRA="${MC_PLUGIN_EXTRA-luckperms coreprotect griefprevention squaremap}"
+MC_PLUGIN_EXTRA="${MC_PLUGIN_EXTRA-luckperms coreprotect griefprevention squaremap skinsrestorer}"
 # Cartella della repo (per copiare gli strumenti) e indirizzo da cui scaricarli
 # se lo script viene lanciato da solo.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -112,6 +112,7 @@ done
 #   coreprotect     registro di chi piazza/rompe blocchi, con annullamento dei danni
 #   griefprevention protezione dei terreni con la pala d'oro
 #   squaremap       mappa web del mondo (porta 8080)
+#   skinsrestorer   mostra le skin anche col server in modalita' offline
 scarica_da_modrinth() {
   local slug="$1" url
   url=$(curl -fsSL -G "https://api.modrinth.com/v2/project/$slug/version" \
