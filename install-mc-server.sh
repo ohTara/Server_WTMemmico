@@ -15,7 +15,7 @@ BACKUP_KEEP_DAYS=14
 TAILSCALE_ENABLED=true
 # Plugin aggiuntivi scaricati da Modrinth nella versione adatta al server.
 # Per escluderne uno: MC_PLUGIN_EXTRA="luckperms coreprotect" ./install-mc-server.sh
-MC_PLUGIN_EXTRA="${MC_PLUGIN_EXTRA-luckperms coreprotect griefprevention squaremap skinsrestorer authmereloaded}"
+MC_PLUGIN_EXTRA="${MC_PLUGIN_EXTRA-luckperms coreprotect griefprevention squaremap skinsrestorer authmereloaded packetevents}"
 # Cartella della repo (per copiare gli strumenti) e indirizzo da cui scaricarli
 # se lo script viene lanciato da solo.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -113,6 +113,7 @@ done
 #   skinsrestorer   mostra le skin anche col server in modalita' offline
 #   authmereloaded  login con password (/register, /login): col server offline
 #                   impedisce di entrare col nome di un altro
+#   packetevents    serve ad AuthMe per nascondere l'inventario prima del login
 scarica_da_modrinth() {
   local slug="$1" url
   url=$(curl -fsSL -G "https://api.modrinth.com/v2/project/$slug/version" \
