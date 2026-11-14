@@ -88,19 +88,35 @@ systemctl --user status mc-server
 journalctl --user -u mc-server -f
 ```
 
-## Tailscale / Accesso remoto
+## Accesso per gli amici (playit.gg)
+
+Gli amici si collegano da qualsiasi rete senza installare nulla, basta che il PC sia acceso: il server e playit partono da soli all'avvio. Nessuna porta aperta sul router.
+
+1. Installa l'agent da `playit.gg/download` (pacchetto `.deb`): gira come servizio di sistema `playit.service`.
+2. Lancia `playit`, apri il link e collega il PC al tuo account.
+3. Su playit.gg crea due tunnel assegnati all'agent:
+   - **Minecraft Java (game)** → `127.0.0.1:25565`
+   - **Minecraft Bedrock (game)** → `127.0.0.1:19132` (accetta "requires RakNet": Geyser usa `transport: both`, RakNet su 19132/udp e NetherNet su 19133/udp)
+4. Passa agli amici, in privato, i due indirizzi che ti dà playit. Java: solo il nome (la porta la trova il record SRV); Bedrock: nome e porta.
+
+## Console (Xbox, PlayStation, Switch) con MCXboxBroadcast
+
+Le console non permettono di inserire un indirizzo. L'estensione di Geyser **MCXboxBroadcast** (in `plugins/Geyser-Spigot/extensions/`) fa comparire il server nella scheda **Amici** di Minecraft tramite un account Microsoft secondario.
+
+1. Crea un account Microsoft nuovo ed entra una volta in Minecraft Bedrock con quello.
+2. Scarica `MCXboxBroadcastExtension.jar` dalle release di `github.com/MCXboxBroadcast/Broadcaster` in `plugins/Geyser-Spigot/extensions/` e riavvia.
+3. Nel log (`mc-logs`) compare un codice: aprilo su `microsoft.com/link` **con l'account secondario**.
+4. In `extensions/mcxboxbroadcast/config.yml` imposta `remote-address` e `remote-port` sull'indirizzo playit di Bedrock, poi riavvia.
+5. Gli amici aggiungono l'account secondario su Xbox e trovano il server in **Gioca → Amici**.
+
+## Tailscale (accesso per l'amministratore)
+
+Serve a te per raggiungere il PC da ovunque (SSH, mappa web, gioco) senza passare da playit; il firewall lascia aperte le porte di gioco e la mappa solo su `tailscale0`.
 
 ```bash
-# Dopo install, autentica Tailscale
-tailscale up
-
-# Ottieni IP per connessione
-tailscale ip -4
-# Es: 100.x.y.z
-
-# Condividi con amici:
-# Java Edition  →  100.x.y.z:25565
-# Bedrock       →  100.x.y.z:19132 (UDP)
+sudo tailscale up --operator=$USER   # login una volta sola
+tailscale ip -4                      # IP 100.x.y.z
+# Java 100.x.y.z:25565 · Bedrock 100.x.y.z:19132 · mappa http://100.x.y.z:8080
 ```
 
 ## Sicurezza
