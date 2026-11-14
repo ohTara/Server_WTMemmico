@@ -154,6 +154,10 @@ cat > "$MC_DIR/plugins/Geyser-Spigot/config.yml" << 'GEYSER_EOF'
 bedrock:
   address: 0.0.0.0
   port: 19132
+  # "both": RakNet su 19132/udp (richiesto dai tunnel playit.gg) e NetherNet,
+  # il nuovo metodo di Bedrock, su 19133/udp. Geyser 2.12 non accetta piu' "raknet".
+  transport: both
+  webrtc-port: 19133
   clone-remote-port: false
   motd1: "PaperMC + Geyser"
   motd2: "Java & Bedrock cross-play"
