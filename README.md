@@ -6,7 +6,7 @@ Server Minecraft **Java + Bedrock cross-play** per 30 giocatori, vanilla+modded,
 
 - Pop!_OS / Ubuntu 24.04+ (o derivati Debian)
 - 8 GB+ RAM (6 GB allocati al server)
-- Java 21 (headless)
+- Java 25 (headless)
 - Tailscale (per accesso remoto zero-config)
 
 ## Installazione rapida
@@ -22,7 +22,7 @@ chmod +x install-mc-server.sh
 ```
 
 Lo script fa tutto:
-1. Installa Java 21 + dipendenze
+1. Installa Java 25 + dipendenze
 2. Scarica PaperMC 1.21.11 (build 34) via API v3
 3. Scarica plugin: Geyser, Floodgate, ViaVersion family, EssentialsX, Spark, più LuckPerms, CoreProtect, GriefPrevention e squaremap da Modrinth
 4. Configura `server.properties`, `paper.yml`, `config.yml` (Geyser) e attiva RCON con una password casuale

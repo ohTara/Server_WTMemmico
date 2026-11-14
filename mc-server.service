@@ -2,6 +2,8 @@
 Description=Minecraft PaperMC + Geyser Server
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -31,8 +33,6 @@ ExecStart=/usr/bin/java -Xms6G -Xmx6G \
 ExecStopPost=-%h/minecraft-server/bin/mc-discord ":octagonal_sign: Server spento"
 Restart=on-failure
 RestartSec=10
-StartLimitIntervalSec=60
-StartLimitBurst=3
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=mc-server

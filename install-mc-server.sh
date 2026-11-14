@@ -31,7 +31,12 @@ error() { echo -e "${RED}[✗]${NC} $*"; exit 1; }
 # ──────────────────────────────────────────────────────────────────────────────
 # Prerequisiti
 log "Verifica prerequisiti..."
-command -v java >/dev/null 2>&1 || { warn "Java mancante, installo..."; sudo apt update && sudo apt install -y openjdk-21-jre-headless; }
+# Java 25: le ultime versioni dei plugin (es. WorldEdit 7.4) non partono con Java 21
+JAVA_MAJOR=$(java -version 2>&1 | awk -F'"' '/version/ {split($2, v, "."); print v[1]}' || true)
+if [[ "${JAVA_MAJOR:-0}" -lt 25 ]]; then
+  warn "Java 25 mancante (trovato: ${JAVA_MAJOR:-nessuno}), installo..."
+  sudo apt update && sudo apt install -y openjdk-25-jre-headless
+fi
 command -v curl >/dev/null 2>&1 || sudo apt install -y curl
 command -v jq >/dev/null 2>&1 || sudo apt install -y jq
 command -v python3 >/dev/null 2>&1 || sudo apt install -y python3   # serve a mc-rcon
@@ -450,6 +455,8 @@ cat > "$HOME/.config/systemd/user/mc-server.service" << EOF
 Description=Minecraft PaperMC + Geyser Server
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -479,8 +486,6 @@ ExecStart=/usr/bin/java -Xms${MC_RAM} -Xmx${MC_RAM} \\
 ExecStopPost=-$MC_DIR/bin/mc-discord ":octagonal_sign: Server spento"
 Restart=on-failure
 RestartSec=10
-StartLimitIntervalSec=60
-StartLimitBurst=3
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=mc-server
