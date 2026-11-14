@@ -24,7 +24,7 @@ chmod +x install-mc-server.sh
 Lo script fa tutto:
 1. Installa Java 25 + dipendenze
 2. Scarica PaperMC 1.21.11 (build 34) via API v3
-3. Scarica plugin: Geyser, Floodgate, ViaVersion family, EssentialsX, Spark, più LuckPerms, CoreProtect, GriefPrevention, squaremap e SkinsRestorer da Modrinth
+3. Scarica plugin: Geyser, Floodgate, ViaVersion family, EssentialsX, più LuckPerms, CoreProtect, GriefPrevention, squaremap e SkinsRestorer da Modrinth
 4. Configura `server.properties`, `paper.yml`, `config.yml` (Geyser) e attiva RCON con una password casuale
 5. Crea systemd user service `mc-server`
 6. Installa gli strumenti in `~/minecraft-server/bin` (backup, ripristino, whitelist, avvisi Discord, firewall) e un timer systemd giornaliero (03:00)
@@ -47,8 +47,7 @@ Lo script fa tutto:
 │   ├── ViaBackwards.jar      # Supporto versioni intermedie
 │   ├── EssentialsX.jar       # Comandi base (/home, /spawn, /tpa, ecc.)
 │   ├── EssentialsXChat.jar   # Chat formatting
-│   ├── EssentialsXSpawn.jar  # Spawn management
-│   └── Spark.jar             # Profiler performance
+│   └── EssentialsXSpawn.jar  # Spawn management
 ├── config/                   # Config plugin (Geyser, etc.)
 ├── world/                    # Mondo Overworld
 ├── world_nether/             # Nether
@@ -68,7 +67,7 @@ Lo script fa tutto:
 | `mc-restart` | Riavvia completo |
 | `mc-status` | Stato systemd |
 | `mc-logs` | Log live (journalctl -f) |
-| `mc-console` | Stato del servizio (non c'è una console interattiva: il server gira sotto systemd) |
+| `mc-console` | Console interattiva: scrivi i comandi senza la `/`, `exit` per uscire (usa RCON) |
 | `mc-backup` | Backup manuale mondi + config |
 | `mc-backup-now` | Backup manuale solo locale (senza upload rclone) |
 | `mc-backup-list` | Lista backup locali |

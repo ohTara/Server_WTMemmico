@@ -95,8 +95,6 @@ declare -A PLUGINS=(
   # WorldEdit - BukkitDev
   ["WorldEdit.jar"]="https://dev.bukkit.org/projects/worldedit/files/latest"
 
-  # Spark - profiler
-  ["Spark.jar"]="https://ci.lucko.me/job/Spark/lastSuccessfulBuild/artifact/spark-bukkit/build/libs/spark-1.10.196-bukkit.jar"
 )
 
 for plugin in "${!PLUGINS[@]}"; do
@@ -575,7 +573,7 @@ alias mc-stop='systemctl --user stop mc-server'
 alias mc-restart='systemctl --user restart mc-server'
 alias mc-status='systemctl --user status mc-server'
 alias mc-logs='journalctl --user -u mc-server -f'
-alias mc-console='systemctl --user status mc-server && echo "Use: journalctl --user -u mc-server -f for live logs"'
+alias mc-console='$HOME/minecraft-server/bin/mc-rcon'                 # console interattiva
 alias mc-backup='$HOME/minecraft-server/backup.sh'
 alias mc-backup-list='ls -lh $HOME/minecraft-server/backups/'
 alias mc-backup-now='BACKUP_REMOTE="" $HOME/minecraft-server/backup.sh'
