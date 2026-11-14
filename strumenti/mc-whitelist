@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# mc-whitelist — gestisce la lista dei giocatori ammessi al server.
+#
+#   mc-whitelist list            mostra chi e' ammesso e se la lista e' attiva
+#   mc-whitelist add NOME        ammette un giocatore (Bedrock: nome con il punto, es. .Mario)
+#   mc-whitelist remove NOME     lo toglie
+#   mc-whitelist on              ammette tutti quelli che hanno gia' giocato, poi attiva la lista
+#   mc-whitelist off             disattiva la lista (entra chiunque raggiunga il server)
+#
+# Il server deve essere acceso: i comandi passano dalla console tramite mc-rcon.
+set -euo pipefail
+
+MC_DIR="${MC_DIR:-$HOME/minecraft-server}"
+RCON="$MC_DIR/bin/mc-rcon"
+
+"$RCON" -q list || { echo "Il server e' spento o RCON non e' attivo: avvialo con mc-start." >&2; exit 1; }
+
+nome_valido() { [[ "$1" =~ ^\.?[A-Za-z0-9_]{1,32}$ ]]; }
+
+case "${1:-}" in
+  list)
+    "$RCON" whitelist list
+    grep -q '^white-list=true' "$MC_DIR/server.properties" \
+      && echo "Lista ATTIVA" || echo "Lista NON attiva (entra chiunque raggiunga il server)"
+    ;;
+  add|remove)
+    nome_valido "${2:-}" || { echo "Nome non valido: ${2:-}" >&2; exit 2; }
+    if [[ "$2" == .* ]]; then
+      # Giocatore Bedrock: ha un identificativo suo, lo gestisce Floodgate.
+      "$RCON" fwhitelist "$1" "${2#.}"
+    else
+      "$RCON" whitelist "$1" "$2"
+    fi
+    ;;
+  on)
+    # Prima ammette chi ha gia' giocato, cosi' nessuno resta fuori. Nomi e
+    # identificativi sono copiati da usercache.json cosi' come sono: per i
+    # giocatori Bedrock l'identificativo non si ricava dal nome.
+    if [[ -f "$MC_DIR/usercache.json" ]]; then
+      [[ -f "$MC_DIR/whitelist.json" ]] || echo '[]' > "$MC_DIR/whitelist.json"
+      unita=$(jq -s '(.[0] + [.[1][] | {uuid, name}]) | unique_by(.uuid)' \
+                "$MC_DIR/whitelist.json" "$MC_DIR/usercache.json")
+      cp "$MC_DIR/whitelist.json" "$MC_DIR/whitelist.json.prima"
+      printf '%s\n' "$unita" > "$MC_DIR/whitelist.json"
+      "$RCON" whitelist reload
+      echo "Ammessi: $(jq -r '[.[].name] | join(", ")' "$MC_DIR/whitelist.json")"
+    fi
+    "$RCON" whitelist on
+    echo "Lista attivata. Per ammettere un nuovo amico: mc-whitelist add NOME"
+    ;;
+  off)
+    "$RCON" whitelist off
+    ;;
+  *)
+    sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+    exit 2
+    ;;
+esac

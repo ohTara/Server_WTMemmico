@@ -13,6 +13,14 @@ MC_VERSION="latest"            # "latest" o versione es. "1.21.1"
 BACKUP_REMOTE="${BACKUP_REMOTE:-}"  # rclone remote, es. "gdrive:mc-backups" o "s3:bucket/path"
 BACKUP_KEEP_DAYS=14
 TAILSCALE_ENABLED=true
+# Plugin aggiuntivi scaricati da Modrinth nella versione adatta al server.
+# Per escluderne uno: MC_PLUGIN_EXTRA="luckperms coreprotect" ./install-mc-server.sh
+MC_PLUGIN_EXTRA="${MC_PLUGIN_EXTRA-luckperms coreprotect griefprevention squaremap}"
+# Cartella della repo (per copiare gli strumenti) e indirizzo da cui scaricarli
+# se lo script viene lanciato da solo.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_RAW="https://raw.githubusercontent.com/ohTara/Server_WTMemmico/main"
+STRUMENTI=(backup.sh ripristina.sh mc-rcon mc-discord mc-discord-watch mc-whitelist firewall.sh)
 
 # Colori
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
@@ -26,12 +34,13 @@ log "Verifica prerequisiti..."
 command -v java >/dev/null 2>&1 || { warn "Java mancante, installo..."; sudo apt update && sudo apt install -y openjdk-21-jre-headless; }
 command -v curl >/dev/null 2>&1 || sudo apt install -y curl
 command -v jq >/dev/null 2>&1 || sudo apt install -y jq
+command -v python3 >/dev/null 2>&1 || sudo apt install -y python3   # serve a mc-rcon
 command -v rclone >/dev/null 2>&1 || { warn "rclone mancante, installo..."; curl https://rclone.org/install.sh | sudo bash; }
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Directory
 log "Creo directory $MC_DIR..."
-mkdir -p "$MC_DIR"/{plugins,world,backups,config}
+mkdir -p "$MC_DIR"/{plugins,world,backups,config,bin}
 cd "$MC_DIR"
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -63,7 +72,6 @@ log "Scarico plugin essenziali..."
 cd "$MC_DIR/plugins"
 
 # URL testati e funzionanti (aggiornare se cambiano)
-# Nota: LuckPerms e CoreProtect scaricati manualmente se necessario
 declare -A PLUGINS=(
   # Geyser + Floodgate (Bedrock cross-play) - FUNZIONANO
   ["Geyser-Spigot.jar"]="https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/spigot"
@@ -86,14 +94,39 @@ declare -A PLUGINS=(
   ["Spark.jar"]="https://ci.lucko.me/job/Spark/lastSuccessfulBuild/artifact/spark-bukkit/build/libs/spark-1.10.196-bukkit.jar"
 )
 
-# Plugin opzionali (da installare manualmente se necessario)
-# LuckPerms: https://luckperms.net/downloads
-# CoreProtect: https://coreprotect.net/download.php
-
 for plugin in "${!PLUGINS[@]}"; do
   url="${PLUGINS[$plugin]}"
   log "  $plugin..."
   curl -fsSL "$url" -o "$plugin" 2>/dev/null || warn "  Fallito: $plugin (prova manuale)"
+done
+
+# Plugin aggiuntivi da Modrinth: per ognuno si chiede la versione piu' recente
+# compatibile con Paper e con la versione di Minecraft installata. Se non ce n'e'
+# una compatibile il plugin viene saltato (meglio assente che incompatibile).
+#   luckperms       permessi e ruoli
+#   coreprotect     registro di chi piazza/rompe blocchi, con annullamento dei danni
+#   griefprevention protezione dei terreni con la pala d'oro
+#   squaremap       mappa web del mondo (porta 8080)
+scarica_da_modrinth() {
+  local slug="$1" url
+  url=$(curl -fsSL -G "https://api.modrinth.com/v2/project/$slug/version" \
+          --data-urlencode 'loaders=["paper"]' \
+          --data-urlencode "game_versions=[\"$MC_VERSION\"]" 2>/dev/null \
+        | jq -r '.[0].files | (map(select(.primary)) + .)[0].url // empty' 2>/dev/null || true)
+  if [[ -z "$url" ]]; then
+    warn "  $slug: nessuna versione per Paper $MC_VERSION, saltato"
+    return 0
+  fi
+  log "  $slug..."
+  if curl -fsSL "$url" -o "$slug.jar.nuovo"; then
+    mv "$slug.jar.nuovo" "$slug.jar"
+  else
+    rm -f "$slug.jar.nuovo"
+    warn "  Fallito: $slug (prova manuale)"
+  fi
+}
+for slug in $MC_PLUGIN_EXTRA; do
+  scarica_da_modrinth "$slug"
 done
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -363,6 +396,52 @@ PAPER_EOF
 fi
 
 # ──────────────────────────────────────────────────────────────────────────────
+# RCON: la "console a distanza" con cui gli strumenti parlano al server acceso
+# (backup senza spegnerlo, whitelist, avvisi in chat). Vale anche per un
+# server.properties gia' esistente: si toccano solo queste righe.
+imposta_proprieta() {   # imposta_proprieta chiave valore
+  local file="$MC_DIR/server.properties"
+  if grep -q "^$1=" "$file"; then
+    sed -i "s|^$1=.*|$1=$2|" "$file"
+  else
+    echo "$1=$2" >> "$file"
+  fi
+}
+PASSWORD_RCON=$(grep '^rcon.password=' "$MC_DIR/server.properties" | cut -d= -f2- || true)
+if [[ -z "$PASSWORD_RCON" || "$PASSWORD_RCON" == "changeme" ]]; then
+  log "Attivo RCON con una password casuale..."
+  imposta_proprieta rcon.password "$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+fi
+imposta_proprieta enable-rcon true
+grep -q '^rcon.port=' "$MC_DIR/server.properties" || imposta_proprieta rcon.port 25575
+imposta_proprieta broadcast-rcon-to-ops false      # niente eco dei comandi agli operatori
+chmod 600 "$MC_DIR/server.properties"              # contiene la password di RCON
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Strumenti di gestione in $MC_DIR/bin (copiati dalla repo, o scaricati)
+log "Installo gli strumenti in $MC_DIR/bin..."
+for f in "${STRUMENTI[@]}"; do
+  if [[ -f "$SCRIPT_DIR/strumenti/$f" ]]; then
+    cp "$SCRIPT_DIR/strumenti/$f" "$MC_DIR/bin/$f"
+  else
+    curl -fsSL "$REPO_RAW/strumenti/$f" -o "$MC_DIR/bin/$f" || warn "  Non scaricato: $f"
+  fi
+  [[ -f "$MC_DIR/bin/$f" ]] && chmod +x "$MC_DIR/bin/$f"
+done
+ln -sf bin/backup.sh "$MC_DIR/backup.sh"           # percorso usato da timer e alias
+
+# Avvisi su Discord: l'indirizzo del webhook resta fuori dalla repo
+mkdir -p "$HOME/.config/mc-server"
+if [[ ! -f "$HOME/.config/mc-server/discord.env" ]]; then
+  cat > "$HOME/.config/mc-server/discord.env" << 'DISCORD_EOF'
+# Incolla qui l'indirizzo del webhook del canale Discord e togli il # iniziale:
+# (Discord: Impostazioni canale -> Integrazioni -> Webhook -> Nuovo webhook -> Copia URL)
+#DISCORD_WEBHOOK="https://discord.com/api/webhooks/..."
+DISCORD_EOF
+  chmod 600 "$HOME/.config/mc-server/discord.env"
+fi
+
+# ──────────────────────────────────────────────────────────────────────────────
 # systemd user service
 log "Creo systemd user service..."
 mkdir -p "$HOME/.config/systemd/user"
@@ -397,6 +476,7 @@ ExecStart=/usr/bin/java -Xms${MC_RAM} -Xmx${MC_RAM} \\
   -Dusing.aikars.flags=https://mcflags.emc.gs \\
   -Daikars.new.flags=true \\
   -jar paper.jar --nogui
+ExecStopPost=-$MC_DIR/bin/mc-discord ":octagonal_sign: Server spento"
 Restart=on-failure
 RestartSec=10
 StartLimitIntervalSec=60
@@ -409,80 +489,34 @@ SyslogIdentifier=mc-server
 WantedBy=default.target
 EOF
 
+# Annuncia su Discord chi entra, chi esce e quando il server e' pronto
+cat > "$HOME/.config/systemd/user/mc-discord-watch.service" << EOF
+[Unit]
+Description=Avvisi Discord del server Minecraft
+
+[Service]
+ExecStart=$MC_DIR/bin/mc-discord-watch
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+EOF
+
 systemctl --user daemon-reload
+if grep -q '^DISCORD_WEBHOOK=' "$HOME/.config/mc-server/discord.env"; then
+  systemctl --user enable mc-discord-watch.service \
+    && systemctl --user restart mc-discord-watch.service \
+    || warn "Avvisi Discord non attivati: systemctl --user enable --now mc-discord-watch"
+else
+  warn "Avvisi Discord non configurati: vedi ~/.config/mc-server/discord.env"
+fi
 log "systemd service installato. Comandi:"
 echo "  systemctl --user start mc-server    # Avvia"
 echo "  systemctl --user stop mc-server     # Ferma"
 echo "  systemctl --user restart mc-server  # Riavvia"
 echo "  systemctl --user status mc-server   # Stato"
 echo "  journalctl --user -u mc-server -f   # Log live"
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Script backup
-log "Creo script backup..."
-cat > "$MC_DIR/backup.sh" << 'BACKUP_EOF'
-#!/usr/bin/env bash
-# backup.sh — Backup mondo Minecraft con rotazione
-set -euo pipefail
-
-MC_DIR="${MC_DIR:-$HOME/minecraft-server}"
-BACKUP_DIR="$MC_DIR/backups"
-BACKUP_REMOTE="${BACKUP_REMOTE:-}"
-KEEP_DAYS="${BACKUP_KEEP_DAYS:-14}"
-
-mkdir -p "$BACKUP_DIR"
-
-DATE=$(date +%Y%m%d-%H%M%S)
-WORLD_NAME="${WORLD_NAME:-world}"
-ARCHIVE="$BACKUP_DIR/${WORLD_NAME}-${DATE}.tar.gz"
-
-log() { echo -e "\033[0;32m[✓]\033[0m $*"; }
-warn() { echo -e "\033[1;33m[!]\033[0m $*"; }
-
-# Ferma server se in esecuzione (opzionale, per consistency)
-WAS_RUNNING=false
-if systemctl --user is-active mc-server >/dev/null 2>&1; then
-  WAS_RUNNING=true
-  log "Server in esecuzione, fermo per backup..."
-  systemctl --user stop mc-server
-  sleep 5
-fi
-
-log "Creo archivio: $ARCHIVE"
-# Overworld, Nether, End e configurazione (solo ciò che esiste)
-ITEMS=()
-for item in "$WORLD_NAME" "${WORLD_NAME}_nether" "${WORLD_NAME}_the_end" \
-            server.properties config; do
-  [[ -e "$MC_DIR/$item" ]] && ITEMS+=("$item")
-done
-tar -czf "$ARCHIVE" -C "$MC_DIR" "${ITEMS[@]}"
-
-# Riavvia se era running
-if [[ "$WAS_RUNNING" == "true" ]]; then
-  log "Riavvio server..."
-  systemctl --user start mc-server
-fi
-
-# Upload remoto se configurato
-if [[ -n "$BACKUP_REMOTE" ]]; then
-  log "Carico su $BACKUP_REMOTE..."
-  rclone copy "$ARCHIVE" "$BACKUP_REMOTE" --progress
-fi
-
-# Rotazione locale
-log "Pulizia backup locali > ${KEEP_DAYS} giorni..."
-find "$BACKUP_DIR" -name "${WORLD_NAME}-*.tar.gz" -mtime +${KEEP_DAYS} -delete
-
-# Rotazione remoto
-if [[ -n "$BACKUP_REMOTE" ]]; then
-  log "Pulizia backup remoti > ${KEEP_DAYS} giorni..."
-  rclone delete "$BACKUP_REMOTE" --min-age ${KEEP_DAYS}d --include "${WORLD_NAME}-*.tar.gz"
-fi
-
-log "Backup completato: $ARCHIVE"
-BACKUP_EOF
-
-chmod +x "$MC_DIR/backup.sh"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Backup automatico giornaliero (systemd user timer, ore 03:00)
@@ -543,6 +577,18 @@ alias mc-version='cat $HOME/minecraft-server/paper.jar 2>/dev/null | strings | g
 ALIAS_EOF
 fi
 
+if ! grep -q "# Minecraft server: strumenti" ~/.bashrc 2>/dev/null; then
+cat >> ~/.bashrc << 'ALIAS2_EOF'
+
+# Minecraft server: strumenti
+alias mc-cmd='$HOME/minecraft-server/bin/mc-rcon'              # mc-cmd say ciao
+alias mc-whitelist='$HOME/minecraft-server/bin/mc-whitelist'
+alias mc-ripristina='$HOME/minecraft-server/bin/ripristina.sh'
+alias mc-discord='$HOME/minecraft-server/bin/mc-discord'
+alias mc-firewall='$HOME/minecraft-server/bin/firewall.sh'
+ALIAS2_EOF
+fi
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Tailscale (installa se manca)
 if [[ "$TAILSCALE_ENABLED" == true ]]; then
@@ -589,6 +635,15 @@ echo "  mc-logs"
 echo ""
 echo "Backup manuale:"
 echo "  mc-backup"
+echo ""
+echo "Strumenti nuovi (apri un nuovo terminale per avere gli alias):"
+echo "  mc-cmd say ciao        # comando alla console del server acceso"
+echo "  mc-whitelist on        # ammette solo chi ha gia' giocato + chi aggiungi"
+echo "  mc-ripristina          # riporta il mondo a un backup"
+echo "  mc-firewall            # chiude le porte a tutto tranne Tailscale"
+echo ""
+warn "Se il server era gia' acceso, riavvialo (mc-restart): RCON e i plugin nuovi"
+warn "partono solo al prossimo avvio."
 echo ""
 echo "Connessione (se Tailscale attivo):"
 echo "  Java:  <tailscale-ip>:25565"

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# mc-discord — manda un messaggio sul canale Discord del server.
+# Uso: mc-discord "testo del messaggio"
+# L'indirizzo del webhook sta in ~/.config/mc-server/discord.env (mai nella repo):
+#     DISCORD_WEBHOOK="https://discord.com/api/webhooks/..."
+# Senza webhook configurato non fa nulla ed esce con 0: gli altri script possono
+# chiamarlo sempre.
+set -uo pipefail
+
+FILE_ENV="${MC_DISCORD_ENV:-$HOME/.config/mc-server/discord.env}"
+# shellcheck disable=SC1090
+[[ -f "$FILE_ENV" ]] && source "$FILE_ENV"
+[[ -n "${DISCORD_WEBHOOK:-}" && $# -gt 0 ]] || exit 0
+
+# jq costruisce il JSON (gestisce virgolette e a capo); allowed_mentions vuoto
+# impedisce che un nome o un testo contenente @everyone notifichi tutto il canale.
+corpo=$(jq -n --arg testo "$*" '{content: $testo, allowed_mentions: {parse: []}}')
+curl -fsS -m 10 -H "Content-Type: application/json" -d "$corpo" "$DISCORD_WEBHOOK" >/dev/null \
+  || echo "mc-discord: invio non riuscito" >&2
+exit 0

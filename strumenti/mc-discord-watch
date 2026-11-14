@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# mc-discord-watch — legge il log del server e annuncia su Discord chi entra,
+# chi esce e quando il server e' pronto. Gira come servizio utente
+# (mc-discord-watch.service).
+set -uo pipefail
+
+QUI="$(cd "$(dirname "$0")" && pwd)"
+SORGENTE=(journalctl --user -u mc-server -f -n 0 -o cat)
+[[ -n "${MC_WATCH_FILE:-}" ]] && SORGENTE=(cat "$MC_WATCH_FILE")   # per le prove
+
+# Il nome deve seguire subito "]: ": una riga di chat ("<Nome> testo") non puo'
+# quindi fingere un ingresso.
+ENTRA='\]: ([A-Za-z0-9_.]{1,32}) joined the game$'
+ESCE='\]: ([A-Za-z0-9_.]{1,32}) left the game$'
+PRONTO='\]: Done \('
+
+"${SORGENTE[@]}" | while IFS= read -r riga; do
+  if [[ "$riga" =~ $ENTRA ]]; then
+    "$QUI/mc-discord" ":green_circle: **${BASH_REMATCH[1]}** e' entrato nel server"
+  elif [[ "$riga" =~ $ESCE ]]; then
+    "$QUI/mc-discord" ":red_circle: **${BASH_REMATCH[1]}** e' uscito dal server"
+  elif [[ "$riga" =~ $PRONTO ]]; then
+    "$QUI/mc-discord" ":white_check_mark: Server acceso e pronto"
+  fi
+done

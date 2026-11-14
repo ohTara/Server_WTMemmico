@@ -28,6 +28,7 @@ ExecStart=/usr/bin/java -Xms6G -Xmx6G \
   -Dusing.aikars.flags=https://mcflags.emc.gs \
   -Daikars.new.flags=true \
   -jar paper.jar --nogui
+ExecStopPost=-%h/minecraft-server/bin/mc-discord ":octagonal_sign: Server spento"
 Restart=on-failure
 RestartSec=10
 StartLimitIntervalSec=60

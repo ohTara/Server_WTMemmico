@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""mc-rcon — invia un comando alla console del server Minecraft tramite RCON.
+
+Uso:  mc-rcon "say ciao"        mc-rcon list        mc-rcon -q save-all
+Porta e password vengono lette da server.properties (MC_DIR, predefinita
+~/minecraft-server). Esce con 1 se il server non risponde o RCON e' spento.
+Usa solo la libreria standard di Python.
+"""
+import os
+import socket
+import struct
+import sys
+
+AUTENTICAZIONE, COMANDO = 3, 2
+
+
+def leggi_proprieta(percorso: str) -> dict[str, str]:
+    """Legge server.properties in un dizionario chiave -> valore."""
+    dati = {}
+    with open(percorso, encoding="utf-8") as f:
+        for riga in f:
+            if "=" in riga and not riga.lstrip().startswith("#"):
+                chiave, valore = riga.rstrip("\n").split("=", 1)
+                dati[chiave.strip()] = valore
+    return dati
+
+
+def invia(sock: socket.socket, ident: int, tipo: int, testo: str) -> None:
+    """Spedisce un pacchetto RCON: lunghezza, id, tipo, testo e due byte nulli."""
+    corpo = struct.pack("<ii", ident, tipo) + testo.encode("utf-8") + b"\x00\x00"
+    sock.sendall(struct.pack("<i", len(corpo)) + corpo)
+
+
+def ricevi(sock: socket.socket) -> tuple[int, str]:
+    """Riceve un pacchetto RCON e restituisce (id, testo)."""
+    def esatti(n: int) -> bytes:
+        dati = b""
+        while len(dati) < n:
+            pezzo = sock.recv(n - len(dati))
+            if not pezzo:
+                raise ConnectionError("connessione chiusa dal server")
+            dati += pezzo
+        return dati
+
+    (lunghezza,) = struct.unpack("<i", esatti(4))
+    corpo = esatti(lunghezza)
+    ident, _tipo = struct.unpack("<ii", corpo[:8])
+    return ident, corpo[8:-2].decode("utf-8", errors="replace")
+
+
+def main() -> int:
+    argomenti = sys.argv[1:]
+    silenzioso = bool(argomenti) and argomenti[0] == "-q"
+    if silenzioso:
+        argomenti = argomenti[1:]
+    if not argomenti:
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    cartella = os.environ.get("MC_DIR", os.path.expanduser("~/minecraft-server"))
+    try:
+        p = leggi_proprieta(os.path.join(cartella, "server.properties"))
+    except OSError as e:
+        print(f"mc-rcon: non riesco a leggere server.properties: {e}", file=sys.stderr)
+        return 1
+    if p.get("enable-rcon", "false") != "true" or not p.get("rcon.password"):
+        print("mc-rcon: RCON non e' attivo in server.properties", file=sys.stderr)
+        return 1
+    try:
+        with socket.create_connection(("127.0.0.1", int(p.get("rcon.port", "25575"))),
+                                      timeout=10) as sock:
+            invia(sock, 1, AUTENTICAZIONE, p["rcon.password"])
+            ident, _ = ricevi(sock)
+            if ident == -1:
+                print("mc-rcon: password RCON rifiutata", file=sys.stderr)
+                return 1
+            invia(sock, 2, COMANDO, " ".join(argomenti))
+            _, risposta = ricevi(sock)
+    except (OSError, ConnectionError, struct.error) as e:
+        print(f"mc-rcon: server non raggiungibile ({e})", file=sys.stderr)
+        return 1
+    if risposta and not silenzioso:
+        print(risposta)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
