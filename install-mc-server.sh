@@ -497,6 +497,8 @@ ExecStart=/usr/bin/java -Xms${MC_RAM} -Xmx${MC_RAM} \\
   -Daikars.new.flags=true \\
   -jar paper.jar --nogui
 ExecStopPost=-$MC_DIR/bin/mc-discord ":octagonal_sign: Server spento"
+# Java esce con 143 quando riceve l'ordine di spegnersi (SIGTERM): non e' un errore
+SuccessExitStatus=143
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
