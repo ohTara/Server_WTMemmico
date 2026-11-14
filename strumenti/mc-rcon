@@ -2,11 +2,13 @@
 """mc-rcon — invia un comando alla console del server Minecraft tramite RCON.
 
 Uso:  mc-rcon "say ciao"        mc-rcon list        mc-rcon -q save-all
+      mc-rcon                     console interattiva (exit o Ctrl+D per uscire)
 Porta e password vengono lette da server.properties (MC_DIR, predefinita
 ~/minecraft-server). Esce con 1 se il server non risponde o RCON e' spento.
 Usa solo la libreria standard di Python.
 """
 import os
+import re
 import socket
 import struct
 import sys
@@ -53,7 +55,8 @@ def main() -> int:
     silenzioso = bool(argomenti) and argomenti[0] == "-q"
     if silenzioso:
         argomenti = argomenti[1:]
-    if not argomenti:
+    interattivo = not argomenti and sys.stdin.isatty()
+    if not argomenti and not interattivo:
         print(__doc__.strip(), file=sys.stderr)
         return 2
     cartella = os.environ.get("MC_DIR", os.path.expanduser("~/minecraft-server"))
@@ -73,6 +76,8 @@ def main() -> int:
             if ident == -1:
                 print("mc-rcon: password RCON rifiutata", file=sys.stderr)
                 return 1
+            if interattivo:
+                return console(sock)
             invia(sock, 2, COMANDO, " ".join(argomenti))
             _, risposta = ricevi(sock)
     except (OSError, ConnectionError, struct.error) as e:
@@ -81,6 +86,28 @@ def main() -> int:
     if risposta and not silenzioso:
         print(risposta)
     return 0
+
+
+def console(sock) -> int:
+    """Legge un comando per riga e stampa la risposta, senza i codici colore."""
+    sock.settimeout(None)
+    print("Console del server: scrivi i comandi senza la / (exit o Ctrl+D per uscire)")
+    ident = 2
+    while True:
+        try:
+            riga = input("mc> ").strip().lstrip("/")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return 0
+        if riga in ("exit", "quit"):
+            return 0
+        if not riga:
+            continue
+        ident += 1
+        invia(sock, ident, COMANDO, riga)
+        _, risposta = ricevi(sock)
+        if risposta:
+            print(re.sub("\u00a7.", "", risposta).rstrip())
 
 
 if __name__ == "__main__":

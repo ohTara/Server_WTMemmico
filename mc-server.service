@@ -2,6 +2,8 @@
 Description=Minecraft PaperMC + Geyser Server
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -29,10 +31,10 @@ ExecStart=/usr/bin/java -Xms6G -Xmx6G \
   -Daikars.new.flags=true \
   -jar paper.jar --nogui
 ExecStopPost=-%h/minecraft-server/bin/mc-discord ":octagonal_sign: Server spento"
+# Java esce con 143 quando riceve l'ordine di spegnersi (SIGTERM): non e' un errore
+SuccessExitStatus=143
 Restart=on-failure
 RestartSec=10
-StartLimitIntervalSec=60
-StartLimitBurst=3
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=mc-server

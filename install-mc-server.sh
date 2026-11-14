@@ -15,7 +15,7 @@ BACKUP_KEEP_DAYS=14
 TAILSCALE_ENABLED=true
 # Plugin aggiuntivi scaricati da Modrinth nella versione adatta al server.
 # Per escluderne uno: MC_PLUGIN_EXTRA="luckperms coreprotect" ./install-mc-server.sh
-MC_PLUGIN_EXTRA="${MC_PLUGIN_EXTRA-luckperms coreprotect griefprevention squaremap}"
+MC_PLUGIN_EXTRA="${MC_PLUGIN_EXTRA-luckperms coreprotect griefprevention squaremap skinsrestorer authmereloaded packetevents}"
 # Cartella della repo (per copiare gli strumenti) e indirizzo da cui scaricarli
 # se lo script viene lanciato da solo.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,7 +31,12 @@ error() { echo -e "${RED}[✗]${NC} $*"; exit 1; }
 # ──────────────────────────────────────────────────────────────────────────────
 # Prerequisiti
 log "Verifica prerequisiti..."
-command -v java >/dev/null 2>&1 || { warn "Java mancante, installo..."; sudo apt update && sudo apt install -y openjdk-21-jre-headless; }
+# Java 25: le ultime versioni dei plugin (es. WorldEdit 7.4) non partono con Java 21
+JAVA_MAJOR=$(java -version 2>&1 | awk -F'"' '/version/ {split($2, v, "."); print v[1]}' || true)
+if [[ "${JAVA_MAJOR:-0}" -lt 25 ]]; then
+  warn "Java 25 mancante (trovato: ${JAVA_MAJOR:-nessuno}), installo..."
+  sudo apt update && sudo apt install -y openjdk-25-jre-headless
+fi
 command -v curl >/dev/null 2>&1 || sudo apt install -y curl
 command -v jq >/dev/null 2>&1 || sudo apt install -y jq
 command -v python3 >/dev/null 2>&1 || sudo apt install -y python3   # serve a mc-rcon
@@ -90,8 +95,6 @@ declare -A PLUGINS=(
   # WorldEdit - BukkitDev
   ["WorldEdit.jar"]="https://dev.bukkit.org/projects/worldedit/files/latest"
 
-  # Spark - profiler
-  ["Spark.jar"]="https://ci.lucko.me/job/Spark/lastSuccessfulBuild/artifact/spark-bukkit/build/libs/spark-1.10.196-bukkit.jar"
 )
 
 for plugin in "${!PLUGINS[@]}"; do
@@ -107,6 +110,10 @@ done
 #   coreprotect     registro di chi piazza/rompe blocchi, con annullamento dei danni
 #   griefprevention protezione dei terreni con la pala d'oro
 #   squaremap       mappa web del mondo (porta 8080)
+#   skinsrestorer   mostra le skin anche col server in modalita' offline
+#   authmereloaded  login con password (/register, /login): col server offline
+#                   impedisce di entrare col nome di un altro
+#   packetevents    serve ad AuthMe per nascondere l'inventario prima del login
 scarica_da_modrinth() {
   local slug="$1" url
   url=$(curl -fsSL -G "https://api.modrinth.com/v2/project/$slug/version" \
@@ -129,6 +136,14 @@ for slug in $MC_PLUGIN_EXTRA; do
   scarica_da_modrinth "$slug"
 done
 
+# AuthMe di base accetta solo [a-zA-Z0-9_]: i giocatori Bedrock hanno il "." di
+# Floodgate davanti al nome e verrebbero cacciati. Il config.yml nasce al primo
+# avvio: se non c'e' ancora, rilancia lo script dopo aver avviato il server.
+AUTHME_CFG="$MC_DIR/plugins/AuthMe/config.yml"
+if [[ -f "$AUTHME_CFG" ]]; then
+  sed -i "s/^\( *allowedNicknameCharacters: \)'\[a-zA-Z0-9_\]\*'$/\1'\\\\.?[a-zA-Z0-9_]*'/" "$AUTHME_CFG"
+fi
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Config Geyser (config.yml generato al primo avvio, qui prepariamo)
 log "Preparo config Geyser..."
@@ -140,6 +155,10 @@ cat > "$MC_DIR/plugins/Geyser-Spigot/config.yml" << 'GEYSER_EOF'
 bedrock:
   address: 0.0.0.0
   port: 19132
+  # "both": RakNet su 19132/udp (richiesto dai tunnel playit.gg) e NetherNet,
+  # il nuovo metodo di Bedrock, su 19133/udp. Geyser 2.12 non accetta piu' "raknet".
+  transport: both
+  webrtc-port: 19133
   clone-remote-port: false
   motd1: "PaperMC + Geyser"
   motd2: "Java & Bedrock cross-play"
@@ -450,6 +469,8 @@ cat > "$HOME/.config/systemd/user/mc-server.service" << EOF
 Description=Minecraft PaperMC + Geyser Server
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -477,10 +498,10 @@ ExecStart=/usr/bin/java -Xms${MC_RAM} -Xmx${MC_RAM} \\
   -Daikars.new.flags=true \\
   -jar paper.jar --nogui
 ExecStopPost=-$MC_DIR/bin/mc-discord ":octagonal_sign: Server spento"
+# Java esce con 143 quando riceve l'ordine di spegnersi (SIGTERM): non e' un errore
+SuccessExitStatus=143
 Restart=on-failure
 RestartSec=10
-StartLimitIntervalSec=60
-StartLimitBurst=3
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=mc-server
@@ -569,7 +590,7 @@ alias mc-stop='systemctl --user stop mc-server'
 alias mc-restart='systemctl --user restart mc-server'
 alias mc-status='systemctl --user status mc-server'
 alias mc-logs='journalctl --user -u mc-server -f'
-alias mc-console='systemctl --user status mc-server && echo "Use: journalctl --user -u mc-server -f for live logs"'
+alias mc-console='$HOME/minecraft-server/bin/mc-rcon'                 # console interattiva
 alias mc-backup='$HOME/minecraft-server/backup.sh'
 alias mc-backup-list='ls -lh $HOME/minecraft-server/backups/'
 alias mc-backup-now='BACKUP_REMOTE="" $HOME/minecraft-server/backup.sh'
@@ -640,7 +661,7 @@ echo "Strumenti nuovi (apri un nuovo terminale per avere gli alias):"
 echo "  mc-cmd say ciao        # comando alla console del server acceso"
 echo "  mc-whitelist on        # ammette solo chi ha gia' giocato + chi aggiungi"
 echo "  mc-ripristina          # riporta il mondo a un backup"
-echo "  mc-firewall            # chiude le porte a tutto tranne Tailscale"
+echo "  mc-firewall            # chiude le porte in entrata (playit e Tailscale ok)"
 echo ""
 warn "Se il server era gia' acceso, riavvialo (mc-restart): RCON e i plugin nuovi"
 warn "partono solo al prossimo avvio."

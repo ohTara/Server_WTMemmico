@@ -6,7 +6,7 @@ Server Minecraft **Java + Bedrock cross-play** per 30 giocatori, vanilla+modded,
 
 - Pop!_OS / Ubuntu 24.04+ (o derivati Debian)
 - 8 GB+ RAM (6 GB allocati al server)
-- Java 21 (headless)
+- Java 25 (headless)
 - Tailscale (per accesso remoto zero-config)
 
 ## Installazione rapida
@@ -22,9 +22,9 @@ chmod +x install-mc-server.sh
 ```
 
 Lo script fa tutto:
-1. Installa Java 21 + dipendenze
+1. Installa Java 25 + dipendenze
 2. Scarica PaperMC 1.21.11 (build 34) via API v3
-3. Scarica plugin: Geyser, Floodgate, ViaVersion family, EssentialsX, Spark, più LuckPerms, CoreProtect, GriefPrevention e squaremap da Modrinth
+3. Scarica plugin: Geyser, Floodgate, ViaVersion family, EssentialsX, più LuckPerms, CoreProtect, GriefPrevention, squaremap, SkinsRestorer, AuthMe e PacketEvents da Modrinth
 4. Configura `server.properties`, `paper.yml`, `config.yml` (Geyser) e attiva RCON con una password casuale
 5. Crea systemd user service `mc-server`
 6. Installa gli strumenti in `~/minecraft-server/bin` (backup, ripristino, whitelist, avvisi Discord, firewall) e un timer systemd giornaliero (03:00)
@@ -47,8 +47,7 @@ Lo script fa tutto:
 │   ├── ViaBackwards.jar      # Supporto versioni intermedie
 │   ├── EssentialsX.jar       # Comandi base (/home, /spawn, /tpa, ecc.)
 │   ├── EssentialsXChat.jar   # Chat formatting
-│   ├── EssentialsXSpawn.jar  # Spawn management
-│   └── Spark.jar             # Profiler performance
+│   └── EssentialsXSpawn.jar  # Spawn management
 ├── config/                   # Config plugin (Geyser, etc.)
 ├── world/                    # Mondo Overworld
 ├── world_nether/             # Nether
@@ -68,7 +67,7 @@ Lo script fa tutto:
 | `mc-restart` | Riavvia completo |
 | `mc-status` | Stato systemd |
 | `mc-logs` | Log live (journalctl -f) |
-| `mc-console` | Stato del servizio (non c'è una console interattiva: il server gira sotto systemd) |
+| `mc-console` | Console interattiva: scrivi i comandi senza la `/`, `exit` per uscire (usa RCON) |
 | `mc-backup` | Backup manuale mondi + config |
 | `mc-backup-now` | Backup manuale solo locale (senza upload rclone) |
 | `mc-backup-list` | Lista backup locali |
@@ -77,7 +76,7 @@ Lo script fa tutto:
 | `mc-whitelist` | Gestisce la lista dei giocatori ammessi (`list`, `add`, `remove`, `on`, `off`) |
 | `mc-ripristina` | Riporta i mondi a un backup |
 | `mc-discord "testo"` | Manda un messaggio sul canale Discord configurato |
-| `mc-firewall` | Chiude le porte a tutto ciò che non arriva da Tailscale |
+| `mc-firewall` | Chiude le porte in entrata (playit.gg e Tailscale continuano a funzionare) |
 
 ### Systemd diretto
 
@@ -89,27 +88,43 @@ systemctl --user status mc-server
 journalctl --user -u mc-server -f
 ```
 
-## Tailscale / Accesso remoto
+## Accesso per gli amici (playit.gg)
+
+Gli amici si collegano da qualsiasi rete senza installare nulla, basta che il PC sia acceso: il server e playit partono da soli all'avvio. Nessuna porta aperta sul router.
+
+1. Installa l'agent da `playit.gg/download` (pacchetto `.deb`): gira come servizio di sistema `playit.service`.
+2. Lancia `playit`, apri il link e collega il PC al tuo account.
+3. Su playit.gg crea due tunnel assegnati all'agent:
+   - **Minecraft Java (game)** → `127.0.0.1:25565`
+   - **Minecraft Bedrock (game)** → `127.0.0.1:19132` (accetta "requires RakNet": Geyser usa `transport: both`, RakNet su 19132/udp e NetherNet su 19133/udp)
+4. Passa agli amici, in privato, i due indirizzi che ti dà playit. Java: solo il nome (la porta la trova il record SRV); Bedrock: nome e porta.
+
+## Console (Xbox, PlayStation, Switch) con MCXboxBroadcast
+
+Le console non permettono di inserire un indirizzo. L'estensione di Geyser **MCXboxBroadcast** (in `plugins/Geyser-Spigot/extensions/`) fa comparire il server nella scheda **Amici** di Minecraft tramite un account Microsoft secondario.
+
+1. Crea un account Microsoft nuovo ed entra una volta in Minecraft Bedrock con quello.
+2. Scarica `MCXboxBroadcastExtension.jar` dalle release di `github.com/MCXboxBroadcast/Broadcaster` in `plugins/Geyser-Spigot/extensions/` e riavvia.
+3. Nel log (`mc-logs`) compare un codice: aprilo su `microsoft.com/link` **con l'account secondario**.
+4. In `extensions/mcxboxbroadcast/config.yml` imposta `remote-address` e `remote-port` sull'indirizzo playit di Bedrock, poi riavvia.
+5. Gli amici aggiungono l'account secondario su Xbox e trovano il server in **Gioca → Amici**.
+
+## Tailscale (accesso per l'amministratore)
+
+Serve a te per raggiungere il PC da ovunque (SSH, mappa web, gioco) senza passare da playit; il firewall lascia aperte le porte di gioco e la mappa solo su `tailscale0`.
 
 ```bash
-# Dopo install, autentica Tailscale
-tailscale up
-
-# Ottieni IP per connessione
-tailscale ip -4
-# Es: 100.x.y.z
-
-# Condividi con amici:
-# Java Edition  →  100.x.y.z:25565
-# Bedrock       →  100.x.y.z:19132 (UDP)
+sudo tailscale up --operator=$USER   # login una volta sola
+tailscale ip -4                      # IP 100.x.y.z
+# Java 100.x.y.z:25565 · Bedrock 100.x.y.z:19132 · mappa http://100.x.y.z:8080
 ```
 
 ## Sicurezza
 
-Con `online-mode=false` chiunque raggiunga la porta può entrare con qualsiasi nome, anche quello di un operatore. Tre protezioni, da attivare a mano quando decidi:
+Con `online-mode=false` chiunque raggiunga la porta può entrare con qualsiasi nome, anche quello di un operatore. Per questo **AuthMe** chiede a ogni giocatore Java una password: `/register <password> <password>` la prima volta, poi `/login <password>`. Altre protezioni, da attivare a mano quando decidi:
 
 ```bash
-mc-firewall          # 1. porte di gioco raggiungibili solo da Tailscale (UFW)
+mc-firewall          # 1. nessuna porta aperta in entrata (UFW); playit.gg e Tailscale funzionano lo stesso
 mc-whitelist on      # 2. entra solo chi ha già giocato, più chi aggiungi
 mc-whitelist add Mario      # nuovo amico su Java
 mc-whitelist add .Mario     # nuovo amico su Bedrock (nome con il punto: passa da Floodgate)
@@ -117,7 +132,9 @@ mc-whitelist add .Mario     # nuovo amico su Bedrock (nome con il punto: passa d
 
 3. **CoreProtect** registra chi piazza e rompe ogni blocco. In gioco, da operatore: `/co inspect` per interrogare un blocco, `/co rollback u:Nome t:1h r:20` per annullare un'ora di danni di un giocatore nel raggio di 20 blocchi.
 
-`mc-firewall` chiede conferma prima di applicare le regole e lascia aperto SSH. La whitelist da sola non basta senza firewall: in `online-mode=false` un nome ammesso si può imitare.
+`mc-firewall` chiede conferma prima di applicare le regole e lascia aperto SSH. La whitelist da sola non basta: in `online-mode=false` un nome ammesso si può imitare, per questo serve AuthMe.
+
+I giocatori Bedrock hanno un `.` davanti al nome (Floodgate): lo script modifica `allowedNicknameCharacters` di AuthMe per accettarlo. Il `config.yml` di AuthMe nasce al primo avvio, quindi su un'installazione nuova rilancia lo script dopo aver avviato il server una volta.
 
 **RCON** è la console a distanza usata dagli strumenti. La password è casuale, sta in `server.properties` (permessi 600) e la porta 25575 non viene aperta dal firewall.
 
@@ -171,6 +188,9 @@ Scaricati da Modrinth nella versione adatta a Paper e alla versione di Minecraft
 | CoreProtect | Registro dei blocchi e annullamento dei danni | `/co inspect`, `/co rollback` |
 | GriefPrevention | Protezione dei terreni | Clic destro con la pala d'oro su due angoli |
 | squaremap | Mappa web del mondo | `http://<ip-tailscale>:8080` |
+| SkinsRestorer | Skin visibili con server offline | `/skin set <nome>` |
+| AuthMe | Login con password per tutti i giocatori | `/register`, `/login` |
+| PacketEvents | Serve ad AuthMe per nascondere l'inventario prima del login | — |
 
 Per sceglierne solo alcuni: `MC_PLUGIN_EXTRA="luckperms coreprotect" ./install-mc-server.sh` (stringa vuota = nessuno).
 
