@@ -15,7 +15,7 @@ BACKUP_KEEP_DAYS=14
 TAILSCALE_ENABLED=true
 # Plugin aggiuntivi scaricati da Modrinth nella versione adatta al server.
 # Per escluderne uno: MC_PLUGIN_EXTRA="luckperms coreprotect" ./install-mc-server.sh
-MC_PLUGIN_EXTRA="${MC_PLUGIN_EXTRA-luckperms coreprotect griefprevention squaremap skinsrestorer}"
+MC_PLUGIN_EXTRA="${MC_PLUGIN_EXTRA-luckperms coreprotect griefprevention squaremap skinsrestorer authmereloaded}"
 # Cartella della repo (per copiare gli strumenti) e indirizzo da cui scaricarli
 # se lo script viene lanciato da solo.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -111,6 +111,8 @@ done
 #   griefprevention protezione dei terreni con la pala d'oro
 #   squaremap       mappa web del mondo (porta 8080)
 #   skinsrestorer   mostra le skin anche col server in modalita' offline
+#   authmereloaded  login con password (/register, /login): col server offline
+#                   impedisce di entrare col nome di un altro
 scarica_da_modrinth() {
   local slug="$1" url
   url=$(curl -fsSL -G "https://api.modrinth.com/v2/project/$slug/version" \
@@ -132,6 +134,14 @@ scarica_da_modrinth() {
 for slug in $MC_PLUGIN_EXTRA; do
   scarica_da_modrinth "$slug"
 done
+
+# AuthMe di base accetta solo [a-zA-Z0-9_]: i giocatori Bedrock hanno il "." di
+# Floodgate davanti al nome e verrebbero cacciati. Il config.yml nasce al primo
+# avvio: se non c'e' ancora, rilancia lo script dopo aver avviato il server.
+AUTHME_CFG="$MC_DIR/plugins/AuthMe/config.yml"
+if [[ -f "$AUTHME_CFG" ]]; then
+  sed -i "s/^\( *allowedNicknameCharacters: \)'\[a-zA-Z0-9_\]\*'$/\1'\\\\.?[a-zA-Z0-9_]*'/" "$AUTHME_CFG"
+fi
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Config Geyser (config.yml generato al primo avvio, qui prepariamo)
@@ -644,7 +654,7 @@ echo "Strumenti nuovi (apri un nuovo terminale per avere gli alias):"
 echo "  mc-cmd say ciao        # comando alla console del server acceso"
 echo "  mc-whitelist on        # ammette solo chi ha gia' giocato + chi aggiungi"
 echo "  mc-ripristina          # riporta il mondo a un backup"
-echo "  mc-firewall            # chiude le porte a tutto tranne Tailscale"
+echo "  mc-firewall            # chiude le porte in entrata (playit e Tailscale ok)"
 echo ""
 warn "Se il server era gia' acceso, riavvialo (mc-restart): RCON e i plugin nuovi"
 warn "partono solo al prossimo avvio."

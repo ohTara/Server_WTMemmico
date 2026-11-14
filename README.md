@@ -24,7 +24,7 @@ chmod +x install-mc-server.sh
 Lo script fa tutto:
 1. Installa Java 25 + dipendenze
 2. Scarica PaperMC 1.21.11 (build 34) via API v3
-3. Scarica plugin: Geyser, Floodgate, ViaVersion family, EssentialsX, più LuckPerms, CoreProtect, GriefPrevention, squaremap e SkinsRestorer da Modrinth
+3. Scarica plugin: Geyser, Floodgate, ViaVersion family, EssentialsX, più LuckPerms, CoreProtect, GriefPrevention, squaremap, SkinsRestorer e AuthMe da Modrinth
 4. Configura `server.properties`, `paper.yml`, `config.yml` (Geyser) e attiva RCON con una password casuale
 5. Crea systemd user service `mc-server`
 6. Installa gli strumenti in `~/minecraft-server/bin` (backup, ripristino, whitelist, avvisi Discord, firewall) e un timer systemd giornaliero (03:00)
@@ -76,7 +76,7 @@ Lo script fa tutto:
 | `mc-whitelist` | Gestisce la lista dei giocatori ammessi (`list`, `add`, `remove`, `on`, `off`) |
 | `mc-ripristina` | Riporta i mondi a un backup |
 | `mc-discord "testo"` | Manda un messaggio sul canale Discord configurato |
-| `mc-firewall` | Chiude le porte a tutto ciò che non arriva da Tailscale |
+| `mc-firewall` | Chiude le porte in entrata (playit.gg e Tailscale continuano a funzionare) |
 
 ### Systemd diretto
 
@@ -105,10 +105,10 @@ tailscale ip -4
 
 ## Sicurezza
 
-Con `online-mode=false` chiunque raggiunga la porta può entrare con qualsiasi nome, anche quello di un operatore. Tre protezioni, da attivare a mano quando decidi:
+Con `online-mode=false` chiunque raggiunga la porta può entrare con qualsiasi nome, anche quello di un operatore. Per questo **AuthMe** chiede a ogni giocatore Java una password: `/register <password> <password>` la prima volta, poi `/login <password>`. Altre protezioni, da attivare a mano quando decidi:
 
 ```bash
-mc-firewall          # 1. porte di gioco raggiungibili solo da Tailscale (UFW)
+mc-firewall          # 1. nessuna porta aperta in entrata (UFW); playit.gg e Tailscale funzionano lo stesso
 mc-whitelist on      # 2. entra solo chi ha già giocato, più chi aggiungi
 mc-whitelist add Mario      # nuovo amico su Java
 mc-whitelist add .Mario     # nuovo amico su Bedrock (nome con il punto: passa da Floodgate)
@@ -116,7 +116,9 @@ mc-whitelist add .Mario     # nuovo amico su Bedrock (nome con il punto: passa d
 
 3. **CoreProtect** registra chi piazza e rompe ogni blocco. In gioco, da operatore: `/co inspect` per interrogare un blocco, `/co rollback u:Nome t:1h r:20` per annullare un'ora di danni di un giocatore nel raggio di 20 blocchi.
 
-`mc-firewall` chiede conferma prima di applicare le regole e lascia aperto SSH. La whitelist da sola non basta senza firewall: in `online-mode=false` un nome ammesso si può imitare.
+`mc-firewall` chiede conferma prima di applicare le regole e lascia aperto SSH. La whitelist da sola non basta: in `online-mode=false` un nome ammesso si può imitare, per questo serve AuthMe.
+
+I giocatori Bedrock hanno un `.` davanti al nome (Floodgate): lo script modifica `allowedNicknameCharacters` di AuthMe per accettarlo. Il `config.yml` di AuthMe nasce al primo avvio, quindi su un'installazione nuova rilancia lo script dopo aver avviato il server una volta.
 
 **RCON** è la console a distanza usata dagli strumenti. La password è casuale, sta in `server.properties` (permessi 600) e la porta 25575 non viene aperta dal firewall.
 
@@ -171,6 +173,7 @@ Scaricati da Modrinth nella versione adatta a Paper e alla versione di Minecraft
 | GriefPrevention | Protezione dei terreni | Clic destro con la pala d'oro su due angoli |
 | squaremap | Mappa web del mondo | `http://<ip-tailscale>:8080` |
 | SkinsRestorer | Skin visibili con server offline | `/skin set <nome>` |
+| AuthMe | Login con password per chi gioca da Java | `/register`, `/login` |
 
 Per sceglierne solo alcuni: `MC_PLUGIN_EXTRA="luckperms coreprotect" ./install-mc-server.sh` (stringa vuota = nessuno).
 
